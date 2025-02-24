@@ -21,7 +21,20 @@ ui <- fluidPage(
       fileInput("file", "Choose YNAB Ledger File", accept = ".csv"),
       uiOutput("filters"),
       selectInput("type", "Summary Type", c("Expense", "Income")),
-      uiOutput("date_range"),
+      selectInput(
+        "date_range", 
+        "Date Range",
+        c(
+          "This Month",
+          str_c("Last ", c(3, 6, 12), " Months"),
+          "Year To Date",
+          "Last Year",
+          "All Dates",
+          "Custom"
+        ),
+        selected = "All Dates"
+      ),
+      uiOutput("custom_date_range"),
       selectInput(
         "summary_of", 
         "Summary Of", 
@@ -69,22 +82,53 @@ server <- function(input, output) {
     tagList(filter_inputs)
   })
   
-  output$date_range <- renderUI({
-    req(transactions())
+  abs_max_date <- reactive({
+    max(pull(distinct(transactions(), date)))
+  })
+  
+  abs_min_date <- reactive({
+    min(pull(distinct(transactions(), date)))
+  })
+  
+  min_date <- reactiveVal()
+  
+  max_date <- reactiveVal()
+  
+  observeEvent(transactions(), {
+    min_date(abs_min_date())
     
-    min_date <- min(pull(transactions(), date))
-    
-    max_date <- max(pull(transactions(), date))
+    max_date(abs_max_date())
+  })
+  
+  observeEvent(
+    input$date_range, 
+    handle_date_range(
+      input$date_range, 
+      abs_min_date(), 
+      abs_max_date(), 
+      min_date, 
+      max_date
+    )
+  )
+  
+  output$custom_date_range <- renderUI({
+    req(input$date_range == "Custom")
     
     dateRangeInput(
-      "date_range", 
-      "Date Range", 
-      min_date, 
-      max_date,
-      min_date,
-      max_date,
+      "custom_date_range", 
+      NULL, 
+      min_date(), 
+      max_date(),
+      min_date(),
+      max_date(),
       format = "mm/dd/yyyy"
     )
+  })
+  
+  observeEvent(input$custom_date_range, {
+    min_date(input$custom_date_range[[1]])
+    
+    max_date(input$custom_date_range[[2]])
   })
   
   summary <- reactive(
@@ -94,7 +138,8 @@ server <- function(input, output) {
       input$category_group,
       input$category,
       input$type, 
-      input$date_range,
+      min_date(),
+      max_date(),
       input$summary_of,
       input$summary_by,
       input$show_top,
@@ -135,6 +180,32 @@ get_filter_input <- function(data, col) {
   )
   
   filter_input
+}
+
+handle_date_range <- function(input_date_range, 
+                              abs_min_date, 
+                              abs_max_date, 
+                              min_date, 
+                              max_date) {
+  if (input_date_range != "Last Year") {
+    max_date(abs_max_date)
+  } else {
+    max_date(floor_date(abs_max_date, "year") - days(1))
+  }
+  
+  if (input_date_range %in% c("All Dates", "Custom")) {
+    min_date(abs_min_date)
+  } else if (input_date_range == "This Month") {
+    min_date(floor_date(abs_max_date, "month"))
+  } else if (str_detect(input_date_range, "Last \\d+ Months")) {
+    n_months_back <- as.integer(str_extract(input_date_range, "\\d+"))
+    
+    min_date(floor_date(abs_max_date %m-% months(n_months_back), "month"))
+  } else if (input_date_range == "Year To Date") {
+    min_date(floor_date(abs_max_date, "year"))
+  } else if (input_date_range == "Last Year") {
+    min_date(floor_date(max_date(), "year"))
+  }
 }
 
 # ------------------------------------------------------------------------------

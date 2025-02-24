@@ -3,7 +3,8 @@ get_summary_table <- function(transactions,
                               input_category_group,
                               input_category,
                               input_type,
-                              input_date_range,
+                              min_date,
+                              max_date,
                               input_summary_of,
                               input_summary_by,
                               input_show_top,
@@ -19,7 +20,7 @@ get_summary_table <- function(transactions,
       category %in% input_category,
       if (input_type == "Income") category == "Ready to Assign" 
         else category != "Ready to Assign",
-      between(date, input_date_range[[1]], input_date_range[[2]])
+      between(date, min_date, max_date)
     ) |> 
     summarise(
       amount = sum(inflow - outflow),
