@@ -22,6 +22,7 @@ get_plot <- function(summary,
     theme(
       axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 12)
     ) +
+    scale_x_discrete(label = \(x) str_trunc(x, 16)) +
     scale_y_continuous(
       labels = 
         if (input_summary_of == "Amount") label_dollar() else label_comma()
