@@ -4,7 +4,7 @@ cat("\014")
 
 pacman::p_load(
   readr, dplyr, snakecase, stringr, purrr, lubridate, 
-  shiny, shinyWidgets, scales, ggplot2, forcats
+  shiny, shinyWidgets, scales, ggplot2, forcats, bslib
 )
 
 r_files <- list.files("R", full.names = TRUE)
@@ -14,15 +14,17 @@ walk(r_files, source)
 # ------------------------------------------------------------------------------
 
 ui <- fluidPage(
+  theme = bs_theme(bootswatch = "flatly"),
   sidebarLayout(
     sidebarPanel(
+      width = 4,
       fileInput("file", "Choose CSV File", accept = ".csv"),
       uiOutput("filters"),
       selectInput("type", "Summary Type", c("Expense", "Income")),
       uiOutput("date_range"),
       selectInput(
-        "summary_of",
-        "Summary Of",
+        "summary_of", 
+        "Summary Of", 
         c("Amount", "Number of Transactions")
       ),
       selectInput(
@@ -31,11 +33,21 @@ ui <- fluidPage(
         c("Payee", "Category", "Category Group")
       ),
       numericInput("show_top", "Show Top", 10, step = 1),
-      switchInput("include_other", 'Include "Other" Group')
+      div(
+        class = "mt-3", 
+        switchInput("include_other", 'Include "Other" Group', inline = TRUE)
+      )
     ),
     mainPanel(
-      plotOutput("plot"),
-      tableOutput("table")
+      width = 8,
+      card(
+        card_header("Summary Plot"),
+        card_body(plotOutput("plot"))
+      ),
+      card(
+        card_header("Summary Table"),
+        card_body(tableOutput("table"))
+      )
     )
   )
 )
