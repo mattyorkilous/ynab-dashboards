@@ -18,7 +18,7 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       width = 4,
-      fileInput("file", "Choose CSV File", accept = ".csv"),
+      fileInput("file", "Choose YNAB Ledger File", accept = ".csv"),
       uiOutput("filters"),
       selectInput("type", "Summary Type", c("Expense", "Income")),
       uiOutput("date_range"),
