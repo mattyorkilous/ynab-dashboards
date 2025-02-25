@@ -19,31 +19,33 @@ get_summary_table <- function(transactions,
       category_group %in% input_category_group,
       category %in% input_category,
       if (input_type == "Income") category == "Ready to Assign" 
-        else category != "Ready to Assign",
+      else category != "Ready to Assign",
       between(date, min_date, max_date)
     ) |> 
-    summarise(
-      amount = sum(inflow - outflow),
-      number_of_transactions = n(),
+    mutate(
+      amount = inflow - outflow,
+      number_of_transactions = 1
+    ) |> 
+    mutate(
+      sum_of_by = sum(.data[[summary_of]]),
       .by = all_of(summary_by)
-    ) |>
-    arrange(
-      if (input_type == "Expense" & summary_of == "amount") .data[[summary_of]] 
-        else desc(.data[[summary_of]]),
-      .data[[summary_by]]
     ) |> 
     mutate(
       "{summary_by}" := lump_order(
         .data[[summary_by]], 
-        (if (input_type == "Expense" & summary_of == "amount") -1 else 1) 
-          * .data[[summary_of]],
-        input_show_top
+        n = input_show_top, 
+        w = sum_of_by * 
+          (if (input_type == "Expense" & summary_of == "amount") -1 else 1)
       )
     ) |> 
     summarise(
-      across(c(amount, number_of_transactions), sum), 
+      amount_total = sum(amount),
+      number_of_transactions = sum(number_of_transactions),
+      amount_mean = mean(amount),
+      amount_median = median(amount),
       .by = all_of(summary_by)
     ) |> 
+    arrange(.data[[summary_by]]) |> 
     filter(
       if (input_include_other) TRUE else .data[[summary_by]] != "Other"
     )
@@ -51,14 +53,14 @@ get_summary_table <- function(transactions,
   summary
 }
 
-lump_order <- function(fct, weight, n) {
+lump_order <- function(fct, n, w) {
   lumped_ordered <- fct |> 
     fct_lump_n(
       n, 
-      w = ({{ weight }} - min({{ weight }}) + 1), # ensures positive weights
+      w = ({{ w }} - min({{ w }}) + 1), # ensures positive weights
       ties.method = "first"
     ) |> 
-    fct_reorder(-{{ weight }}) |> 
+    fct_reorder(-{{ w }}) |> 
     fct_relevel("Other", after = Inf)
   
   lumped_ordered
@@ -66,7 +68,15 @@ lump_order <- function(fct, weight, n) {
 
 format_summary_table <- function(summary, input_include_other) {
   summary_formatted <- summary |> 
-    mutate(amount = label_dollar()(amount)) |> 
+    rename(
+      "amount" = amount_total,
+      "mean_amount" = amount_mean,
+      "median_amount" = amount_median
+    ) |> 
+    mutate(
+      across(ends_with("amount"), label_dollar()),
+      number_of_transactions = label_number()(number_of_transactions)
+    ) |> 
     rename_with(to_title_case)
   
   summary_formatted

@@ -7,7 +7,7 @@ get_plot <- function(summary,
   summary_by <- to_snake_case(input_summary_by)
   
   plot <- summary |> 
-    mutate(amount = (if (input_type == "Expense") -1 else 1) * amount) |> 
+    mutate(amount = (if (input_type == "Expense") -1 else 1) * amount_total) |> 
     ggplot(
       aes(
         x = .data[[summary_by]], 

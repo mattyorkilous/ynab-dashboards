@@ -159,9 +159,11 @@ server <- function(input, output) {
     summary_formatted()
   )
   
-  output$plot <- renderPlot(
+  output$plot <- renderPlot({
+    req(plot())
+       
     plot()
-  )
+  })
 }
 
 get_filter_input <- function(data, col) {
