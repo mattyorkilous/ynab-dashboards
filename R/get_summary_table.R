@@ -19,7 +19,7 @@ get_summary_table <- function(transactions,
       category_group %in% input_category_group,
       category %in% input_category,
       if (input_type == "Income") category == "Ready to Assign" 
-      else category != "Ready to Assign",
+        else category != "Ready to Assign",
       between(date, min_date, max_date)
     ) |> 
     mutate(
@@ -30,13 +30,10 @@ get_summary_table <- function(transactions,
       sum_of_by = sum(.data[[summary_of]]),
       .by = all_of(summary_by)
     ) |> 
-    mutate(
-      "{summary_by}" := lump_order(
-        .data[[summary_by]], 
-        n = input_show_top, 
-        w = sum_of_by * 
-          (if (input_type == "Expense" & summary_of == "amount") -1 else 1)
-      )
+    lump_and_reorder(
+      n = input_show_top,
+      summary_by,
+      descending = (input_type == "Expense" & summary_of == "amount")
     ) |> 
     summarise(
       amount_total = sum(amount),
@@ -53,17 +50,25 @@ get_summary_table <- function(transactions,
   summary
 }
 
-lump_order <- function(fct, n, w) {
-  lumped_ordered <- fct |> 
-    fct_lump_n(
-      n, 
-      w = ({{ w }} - min({{ w }}) + 1), # ensures positive weights
-      ties.method = "first"
+lump_and_reorder <- function(.data, n, summary_by, descending) {
+  top_n_groups <- .data |> 
+    distinct(.data[[summary_by]], sum_of_by) |> 
+    slice_max(
+      sum_of_by * ((-1) ^ descending), 
+      n = n, 
+      with_ties = FALSE
     ) |> 
-    fct_reorder(-{{ w }}) |> 
-    fct_relevel("Other", after = Inf)
+    pull(.data[[summary_by]])
   
-  lumped_ordered
+  data_lumped_and_reordered <- .data |> 
+    mutate(
+      "{summary_by}" := if_else(
+        .data[[summary_by]] %in% top_n_groups,
+        .data[[summary_by]],
+        "Other"
+      ) |> 
+        fct_relevel(c(top_n_groups, "Other"))
+    )
 }
 
 format_summary_table <- function(summary, input_include_other) {
