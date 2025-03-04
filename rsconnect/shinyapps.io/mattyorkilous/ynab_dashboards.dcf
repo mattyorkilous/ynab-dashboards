@@ -5,6 +5,6 @@ account: mattyorkilous
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 14075531
-bundleId: 9855223
+bundleId: 9879835
 url: https://mattyorkilous.shinyapps.io/ynab_dashboards/
 version: 1

@@ -45,7 +45,7 @@ ui <- fluidPage(
         "Summary By", 
         c("Payee", "Category", "Category Group")
       ),
-      numericInput("show_top", "Show Top", 10, step = 1),
+      numericInput("show_top", "Show Top", 8, step = 1),
       div(
         class = "mt-3", 
         switchInput("include_other", 'Include "Other" Group', inline = TRUE)
@@ -67,9 +67,11 @@ ui <- fluidPage(
 
 server <- function(input, output) {
   transactions <- reactive({
-    req(input$file)
-    
-    read_transactions(input$file$datapath)
+    if (is_null(input$file)) {
+      read_csv("Data/sample_data.csv")
+    } else {
+      read_transactions(input$file$datapath)
+    }
   })
   
   output$filters <- renderUI({
