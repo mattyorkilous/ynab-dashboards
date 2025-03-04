@@ -68,7 +68,7 @@ ui <- fluidPage(
 server <- function(input, output) {
   transactions <- reactive({
     if (is_null(input$file)) {
-      read_csv("Data/sample_data.csv")
+      read_csv("data/sample_data.csv")
     } else {
       read_transactions(input$file$datapath)
     }
