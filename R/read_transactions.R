@@ -1,5 +1,5 @@
-read_transactions <- function(input_file_datapath) {
-  transactions_raw <- read_csv(input_file_datapath)
+read_transactions <- function(file_path) {
+  transactions_raw <- read_csv(file_path)
   
   transactions <- clean_transactions(transactions_raw)
   

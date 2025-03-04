@@ -1,6 +1,6 @@
 rm(list = ls())
 
-pacman::p_load(lubridate, dplyr, purrr, tidyr, truncnorm, readr)
+pacman::p_load(lubridate, dplyr, purrr, tidyr, truncnorm, readr, stringr)
 
 main <- function() {
   dates <- tibble(
@@ -20,9 +20,13 @@ main <- function() {
   
   transactions <- bind_rows(transactions_irregular, transactions_regular) |> 
     arrange(date) |> 
+    mutate(
+      date = format(date, "%m/%d/%Y"),
+      across(c(inflow, outflow), \(x) str_c("$", round(x, 2)))
+    ) |> 
     select(date, category_group, category, payee, account, inflow, outflow)
   
-  write_csv(transactions, "data/sample_data.csv")
+  write_csv(transactions, "data/example_data.csv")
   
   walk(ls(), \(x) assign(x, get(x), .GlobalEnv))
 }
