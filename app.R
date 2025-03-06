@@ -203,7 +203,7 @@ get_filter_input <- function(data, col) {
     choices,
     selected = choices,
     multiple = TRUE,
-    options = list(`actions-box` = TRUE)
+    options = pickerOptions(actionsBox = TRUE, liveSearch = TRUE)
   )
   
   filter_input
