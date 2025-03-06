@@ -1,26 +1,16 @@
-get_summary_table <- function(transactions,
-                              input_account,
-                              input_category_group,
-                              input_category,
-                              input_type,
-                              min_date,
-                              max_date,
-                              input_summary_of,
-                              input_summary_by,
-                              input_show_top,
-                              input_include_other) {
-  summary_of <- to_snake_case(input_summary_of)
+get_summary_table <- function(transactions, input, dates) {
+  summary_of <- to_snake_case(input$summary_of)
   
-  summary_by <- to_snake_case(input_summary_by)
+  summary_by <- to_snake_case(input$summary_by)
   
   summary <- transactions |> 
     filter(
-      account %in% input_account,
-      category_group %in% input_category_group,
-      category %in% input_category,
-      if (input_type == "Income") category == "Ready to Assign" 
+      account %in% input$account,
+      category_group %in% input$category_group,
+      category %in% input$category,
+      if (input$type == "Income") category == "Ready to Assign" 
         else category != "Ready to Assign",
-      between(date, min_date, max_date)
+      between(date, dates$min_date(), dates$max_date())
     ) |> 
     mutate(
       amount = inflow - outflow,
@@ -31,9 +21,9 @@ get_summary_table <- function(transactions,
       .by = all_of(summary_by)
     ) |> 
     lump_and_reorder(
-      n = input_show_top,
+      n = input$show_top,
       summary_by,
-      descending = (input_type == "Expense" & summary_of == "amount")
+      descending = (input$type == "Expense" & summary_of == "amount")
     ) |> 
     summarise(
       amount_total = sum(amount),
@@ -44,7 +34,7 @@ get_summary_table <- function(transactions,
     ) |> 
     arrange(.data[[summary_by]]) |> 
     filter(
-      if (input_include_other) TRUE else .data[[summary_by]] != "Other"
+      if (input$include_other) TRUE else .data[[summary_by]] != "Other"
     )
   
   summary
@@ -71,7 +61,7 @@ lump_and_reorder <- function(.data, n, summary_by, descending) {
     )
 }
 
-format_summary_table <- function(summary, input_include_other) {
+format_summary_table <- function(summary) {
   summary_formatted <- summary |> 
     rename(
       "amount" = amount_total,

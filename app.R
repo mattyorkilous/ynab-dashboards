@@ -69,11 +69,35 @@ ui <- fluidPage(
 )
 
 server <- function(input, output) {
+  transactions <- initialize_transactions(input)
+  
+  output$filters <- renderUI({
+    get_filter_inputs(
+      transactions, 
+      c("account", "category_group", "category")
+    )
+  })
+  
+  dates <- handle_dates(transactions, input, output)
+  
+  summary <- reactive(
+    get_summary_table(transactions(), input, dates)
+  )
+  
+  output$table <- renderTable(
+    format_summary_table(summary())
+  )
+  
+  output$plot <- renderPlot({
+    get_plot(summary(), input, dates)
+  })
+}
+
+initialize_transactions <- function(input) {
   file_path <- reactiveVal()
   
   observeEvent(input$use_example_data, {
     reset("file")
-    
     file_path("data/example_data.csv")
   })
   
@@ -83,112 +107,25 @@ server <- function(input, output) {
   
   transactions <- reactive({
     req(file_path())
-      
     read_transactions(file_path())
   })
   
-  observeEvent(transactions(), reset("inputs"))
-  
-  output$filters <- renderUI({
-    req(transactions())
-    
-    cols <- c("account", "category_group", "category")
-    
-    filter_inputs <- map(cols, \(col) get_filter_input(transactions(), col))
-    
-    tagList(filter_inputs)
-  })
-  
-  abs_max_date <- reactive({
-    max(pull(distinct(transactions(), date)))
-  })
-  
-  abs_min_date <- reactive({
-    min(pull(distinct(transactions(), date)))
-  })
-  
-  min_date <- reactiveVal()
-  
-  max_date <- reactiveVal()
-  
   observeEvent(transactions(), {
-    min_date(abs_min_date())
-    
-    max_date(abs_max_date())
+    reset("inputs")
   })
   
-  observeEvent(
-    input$date_range, 
-    handle_date_range(
-      input$date_range, 
-      abs_min_date(), 
-      abs_max_date(), 
-      min_date, 
-      max_date
-    )
+  transactions
+}
+
+get_filter_inputs <- function(transactions, cols) {
+  req(transactions())
+  
+  filter_inputs <- map(
+    cols, 
+    \(col) get_filter_input(transactions(), col)
   )
   
-  output$custom_date_range <- renderUI({
-    req(input$date_range == "Custom")
-    
-    dateRangeInput(
-      "custom_date_range", 
-      NULL, 
-      min_date(), 
-      max_date(),
-      min_date(),
-      max_date(),
-      format = "mm/dd/yyyy"
-    )
-  })
-  
-  observeEvent(input$custom_date_range, {
-    min_date(input$custom_date_range[[1]])
-    
-    max_date(input$custom_date_range[[2]])
-  })
-  
-  summary <- reactive(
-    get_summary_table(
-      transactions(),
-      input$account,
-      input$category_group,
-      input$category,
-      input$type, 
-      min_date(),
-      max_date(),
-      input$summary_of,
-      input$summary_by,
-      input$show_top,
-      input$include_other
-    )
-  )
-  
-  summary_formatted <- reactive(
-    format_summary_table(summary())
-  )
-  
-  plot <- reactive(
-    get_plot(
-      summary(), 
-      input$type, 
-      input$summary_of, 
-      input$summary_by, 
-      input$show_top,
-      min_date(),
-      max_date()
-    )
-  )
-  
-  output$table <- renderTable(
-    summary_formatted()
-  )
-  
-  output$plot <- renderPlot({
-    req(plot())
-       
-    plot()
-  })
+  tagList(filter_inputs)
 }
 
 get_filter_input <- function(data, col) {
@@ -209,28 +146,77 @@ get_filter_input <- function(data, col) {
   filter_input
 }
 
-handle_date_range <- function(input_date_range, 
-                              abs_min_date, 
-                              abs_max_date, 
-                              min_date, 
-                              max_date) {
-  if (input_date_range != "Last Year") {
+handle_dates <- function(transactions, input, output) {
+  abs_max_date <- reactive({
+    max(pull(distinct(transactions(), date)))
+  })
+  
+  abs_min_date <- reactive({
+    min(pull(distinct(transactions(), date)))
+  })
+  
+  min_date <- reactiveVal()
+  
+  max_date <- reactiveVal()
+  
+  observeEvent(transactions(), {
+    min_date(abs_min_date())
+    max_date(abs_max_date())
+  })
+  
+  observeEvent(
+    input$date_range, 
+    handle_date_range_text(
+      input, 
+      abs_min_date(), 
+      abs_max_date(), 
+      min_date, 
+      max_date
+    )
+  )
+  
+  output$custom_date_range <- renderUI({
+    req(input$date_range == "Custom")
+    dateRangeInput(
+      "custom_date_range", 
+      NULL, 
+      min_date(), 
+      max_date(),
+      min_date(),
+      max_date(),
+      format = "mm/dd/yyyy"
+    )
+  })
+  
+  observeEvent(input$custom_date_range, {
+    min_date(input$custom_date_range[[1]])
+    max_date(input$custom_date_range[[2]])
+  })
+  
+  list(min_date = min_date, max_date = max_date)
+}
+
+handle_date_range_text <- function(input, 
+                                   abs_min_date, 
+                                   abs_max_date, 
+                                   min_date, 
+                                   max_date) {
+  if (input$date_range != "Last Year") {
     max_date(abs_max_date)
   } else {
     max_date(floor_date(abs_max_date, "year") - days(1))
   }
   
-  if (input_date_range %in% c("All Dates", "Custom")) {
+  if (input$date_range %in% c("All Dates", "Custom")) {
     min_date(abs_min_date)
-  } else if (input_date_range == "This Month") {
+  } else if (input$date_range == "This Month") {
     min_date(floor_date(abs_max_date, "month"))
-  } else if (str_detect(input_date_range, "Last \\d+ Months")) {
-    n_months_back <- as.integer(str_extract(input_date_range, "\\d+"))
-    
+  } else if (str_detect(input$date_range, "Last \\d+ Months")) {
+    n_months_back <- as.integer(str_extract(input$date_range, "\\d+"))
     min_date(floor_date(abs_max_date %m-% months(n_months_back), "month"))
-  } else if (input_date_range == "Year To Date") {
+  } else if (input$date_range == "Year To Date") {
     min_date(floor_date(abs_max_date, "year"))
-  } else if (input_date_range == "Last Year") {
+  } else if (input$date_range == "Last Year") {
     min_date(floor_date(max_date(), "year"))
   }
 }
